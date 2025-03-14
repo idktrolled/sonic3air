@@ -23,6 +23,9 @@ jobs:
     - name: mastering android
       working-directory: ./Oxygen/sonic3air/___internal/mastering
       run: ./mastering_android.bat
+    - name: mastering scripts
+      working-directory: ./Oxygen/sonic3air/___internal/mastering
+      run: ./mastering_build_data_64bit.bat
     - name: gradlew
       working-directory: ./Oxygen/sonic3air/build/_android
       run: ./gradlew.bat assembleDebug --no-daemon -PABIFILTERS="armeabi-v7a;arm64-v8a" -PRETRO_DISABLE_PLUS
