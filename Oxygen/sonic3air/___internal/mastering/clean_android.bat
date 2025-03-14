@@ -9,7 +9,3 @@ rmdir /s /q app\.cxx
 rmdir /s /q app\build
 
 popd
-
-
-:: Done
-pause
