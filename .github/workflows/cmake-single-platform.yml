@@ -1,0 +1,15 @@
+name: build
+on:
+  push:
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@main
+    - uses: actions/setup-java@main
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+    - name: gradlew
+      working-directory: ./Oxygen/sonic3air/build/_android
+      run: ./gradlew.bat assembleDebug --no-daemon -PABIFILTERS="armeabi-v7a;arm64-v8a" -PRETRO_DISABLE_PLUS
