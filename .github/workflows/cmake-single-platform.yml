@@ -17,7 +17,7 @@ jobs:
         distribution: 'temurin'
     - name: clean android
       working-directory: ./Oxygen/sonic3air/___internal/mastering
-      run: ./clean_android.bat
+      run: ./clean_android.bat -enter
     - name: mastering android
       working-directory: ./Oxygen/sonic3air/___internal/mastering
       run: ./mastering_android.bat
