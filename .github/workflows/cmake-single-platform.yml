@@ -1,6 +1,11 @@
 name: build
 on:
   push:
+    branches:
+      - main
+
+env:
+  GENERAL_FLAGS: "-DRETRO_DISABLE_PLUS=ON -DCMAKE_BUILD_TYPE=Release"
 jobs:
   build:
     runs-on: windows-latest
@@ -13,3 +18,8 @@ jobs:
     - name: gradlew
       working-directory: ./Oxygen/sonic3air/build/_android
       run: ./gradlew.bat assembleDebug --no-daemon -PABIFILTERS="armeabi-v7a;arm64-v8a" -PRETRO_DISABLE_PLUS
+    - name: Upload artifact Android
+      uses: actions/upload-artifact@v4
+      with:
+        name: project
+        path: ./Oxygen/sonic3air/build/_android/app/build/outputs/apk
