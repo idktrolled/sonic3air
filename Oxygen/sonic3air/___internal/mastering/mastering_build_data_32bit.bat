@@ -6,8 +6,8 @@ call ..\..\..\..\framework\external\get_msbuild_path.bat
 
 pushd ..\..
 
-rmdir "%outputDir%\bonus\sonic3air_dev\scripts" /s /q
-mkdir "%outputDir%\data"
+rmdir "scripts" /s /q
+mkdir "data"
 
 
 :: Make sure the Release build is up-to-date
@@ -18,15 +18,15 @@ mkdir "%outputDir%\data"
 
 :: Build data packages and meta data
 "bin\Release_x86\Sonic3AIR.exe" -pack
-move "enginedata.bin" "%outputDir%\data"
-move "gamedata.bin" "%outputDir%\data"
-move "audiodata.bin" "%outputDir%\data"
-move "audioremaster.bin" "%outputDir%\data"
-copy "data\metadata.json" "%outputDir%\data" /y
+move "enginedata.bin" "data"
+move "gamedata.bin" "data"
+move "audiodata.bin" "data"
+move "audioremaster.bin" "data"
+copy "data\metadata.json" "data" /y
 
 :: Copy scripts
 :: TODO: Make sure these scripts are really up-to-date
-copy "saves\scripts.bin" "%outputDir%\data"
+copy "saves\scripts.bin" "data"
 
 popd
 
