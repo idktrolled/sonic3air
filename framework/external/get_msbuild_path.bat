@@ -1,18 +1,3 @@
 :: You might need to change this path to point to your Visual Studio installation's MSBuild.exe
 set msbuildPath="C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\MSBuild\Current\Bin\MSBuild.exe"
-set msbuildPath22="C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\Current\Bin\MSBuild.exe
-
-if exist %msbuildPath% (
-	set msbuildPath=%msbuildPath%
-) else (
-	set msbuildPath=%msbuildPath22%
-)
-
-if not exist %msbuildPath% (
-	echo Error: No Visual Studio 2022 installation found
-	pause
-	exit /b 1
-)
-
-echo Using Visual Studio installation: %msbuildPath%
-echo.
+set msbuildPath22="C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\Current\Bin\MSBuild.exe"
