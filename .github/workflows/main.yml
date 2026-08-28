@@ -15,12 +15,14 @@ jobs:
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
-      - name: Configure MSBuild path
+      - name: Find MSBuild
         shell: powershell
         run: |
           $msbuild = (Get-Command msbuild.exe).Source
 
-          Write-Host "MSBuild encontrado:"
+          Write-Host "========================================"
+          Write-Host "MSBUILD"
+          Write-Host "========================================"
           Write-Host $msbuild
 
           if (!(Test-Path $msbuild)) {
@@ -28,13 +30,24 @@ jobs:
               exit 1
           }
 
-          $msbuild = $msbuild.Replace('"', '')
+          "MSBUILD_PATH=$msbuild" >> $env:GITHUB_ENV
 
+      - name: Create get_msbuild_path.bat
+        shell: powershell
+        run: |
           $bat = @"
           @echo off
-          set "msbuildPath=$msbuild"
-          set "msbuildPathCom=$msbuild"
-          set "msbuildPathPro=$msbuild"
+          set "msbuildPath=$env:MSBUILD_PATH"
+          set "msbuildPathCom=$env:MSBUILD_PATH"
+          set "msbuildPathPro=$env:MSBUILD_PATH"
+
+          if not exist "%msbuildPath%" (
+              echo ERROR: MSBuild no encontrado
+              exit /b 1
+          )
+
+          echo Using MSBuild:
+          echo %msbuildPath%
           "@
 
           Set-Content `
@@ -49,29 +62,30 @@ jobs:
 
           echo.
           echo ========================================
-          echo MSBUILD
+          echo MSBUILD VERSION
           echo ========================================
-          echo %msbuildPath%
 
-          echo.
-          echo ========================================
-          echo VERSION
-          echo ========================================
           "%msbuildPath%" -version
 
       - name: Build external dependencies
         shell: cmd
         run: |
           cd framework\external
+
+          echo.
+          echo ========================================
+          echo BUILDING EXTERNAL DEPENDENCIES
+          echo ========================================
+
           call build_externals_windows.bat no_pause
 
-      - name: Check generated libraries
+      - name: Diagnose external libraries
         if: always()
         shell: powershell
         run: |
           Write-Host ""
           Write-Host "========================================"
-          Write-Host "LIBRERIAS GENERADAS"
+          Write-Host "TODAS LAS LIBRERIAS .LIB ENCONTRADAS"
           Write-Host "========================================"
 
           $libs = Get-ChildItem `
@@ -81,10 +95,10 @@ jobs:
             -ErrorAction SilentlyContinue
 
           if ($libs.Count -eq 0) {
-              Write-Host "NO SE ENCONTRARON LIBRERIAS .LIB"
+              Write-Host "NO SE ENCONTRO NINGUNA LIBRERIA .LIB"
           }
           else {
-              Write-Host "Encontradas $($libs.Count) librerias:"
+              Write-Host "Se encontraron $($libs.Count) librerias:"
               Write-Host ""
 
               foreach ($lib in $libs) {
@@ -92,20 +106,23 @@ jobs:
               }
           }
 
-      - name: Check external dependency files
+      - name: Diagnose external folders
         if: always()
         shell: powershell
         run: |
           Write-Host ""
           Write-Host "========================================"
-          Write-Host "ARCHIVOS EXTERNOS"
+          Write-Host "ESTRUCTURA DE FRAMEWORK/EXTERNAL"
           Write-Host "========================================"
 
           Get-ChildItem `
             "framework\external" `
             -Recurse `
-            -Include "*.lib","*.dll","*.h" `
+            -File `
             -ErrorAction SilentlyContinue |
+            Where-Object {
+              $_.Extension -in ".lib", ".dll", ".bat"
+            } |
             ForEach-Object {
               Write-Host $_.FullName
             }
