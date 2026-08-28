@@ -9,40 +9,30 @@ jobs:
     runs-on: windows-2022
 
     steps:
-
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
-      - name: Verify MSBuild
-        shell: powershell
-        run: |
-          Write-Host "======================================"
-          Write-Host "MSBUILD"
-          Write-Host "======================================"
-
-          $msbuild = Get-Command msbuild.exe -ErrorAction Stop
-
-          Write-Host "MSBuild encontrado:"
-          Write-Host $msbuild.Source
-
-          & $msbuild.Source -version
-
-      # ============================================================
-      # Crear get_msbuild_path.bat para los scripts originales
-      # ============================================================
-
       - name: Configure MSBuild path
         shell: powershell
         run: |
           $msbuild = (Get-Command msbuild.exe).Source
 
-          Write-Host "MSBuild: $msbuild"
+          Write-Host "MSBuild encontrado:"
+          Write-Host $msbuild
+
+          if (!(Test-Path $msbuild)) {
+              Write-Error "MSBuild no encontrado"
+              exit 1
+          }
+
+          $msbuild = $msbuild.Replace('"', '')
 
           $bat = @"
           @echo off
+          set "msbuildPath=$msbuild"
           set "msbuildPathCom=$msbuild"
           set "msbuildPathPro=$msbuild"
           "@
@@ -52,139 +42,98 @@ jobs:
             -Value $bat `
             -Encoding ASCII
 
-          Write-Host ""
-          Write-Host "get_msbuild_path.bat:"
-          Get-Content "framework\external\get_msbuild_path.bat"
-
-      # ============================================================
-      # Mostrar configuraciones disponibles de CURL
-      # ============================================================
-
-      - name: Inspect CURL configurations
-        shell: powershell
+      - name: Verify MSBuild
+        shell: cmd
         run: |
-          $projects = @(
-            "framework\external\curl\curl\projects\Windows\VC14.30\lib\libcurl.vcxproj",
-            "framework\external\curl\curl\projects\Windows\VC14.30\src\curl.vcxproj"
-          )
+          call framework\external\get_msbuild_path.bat
 
-          foreach ($project in $projects) {
-            if (Test-Path $project) {
-              Write-Host ""
-              Write-Host "======================================"
-              Write-Host $project
-              Write-Host "======================================"
+          echo.
+          echo ========================================
+          echo MSBUILD
+          echo ========================================
+          echo %msbuildPath%
 
-              Select-String `
-                -Path $project `
-                -Pattern "<ProjectConfiguration Include=" |
-                ForEach-Object {
-                  Write-Host $_.Line.Trim()
-                }
-            }
-          }
-
-      # ============================================================
-      # Construir dependencias
-      # ============================================================
+          echo.
+          echo ========================================
+          echo VERSION
+          echo ========================================
+          "%msbuildPath%" -version
 
       - name: Build external dependencies
         shell: cmd
         run: |
           cd framework\external
-
-          echo ========================================
-          echo BUILDING EXTERNAL DEPENDENCIES
-          echo ========================================
-
-          call build_externals_windows.bat
-
-      # ============================================================
-      # Comprobar librerías
-      # ============================================================
+          call build_externals_windows.bat no_pause
 
       - name: Check generated libraries
         if: always()
         shell: powershell
         run: |
           Write-Host ""
-          Write-Host "======================================"
-          Write-Host "LIBRERIAS .LIB ENCONTRADAS"
-          Write-Host "======================================"
+          Write-Host "========================================"
+          Write-Host "LIBRERIAS GENERADAS"
+          Write-Host "========================================"
 
           $libs = Get-ChildItem `
-            "." `
+            "framework\external" `
             -Recurse `
             -Filter "*.lib" `
             -ErrorAction SilentlyContinue
 
           if ($libs.Count -eq 0) {
-            Write-Host "NO SE ENCONTRARON LIBRERIAS .LIB"
+              Write-Host "NO SE ENCONTRARON LIBRERIAS .LIB"
           }
           else {
-            Write-Host "Encontradas $($libs.Count) librerias:"
-            Write-Host ""
+              Write-Host "Encontradas $($libs.Count) librerias:"
+              Write-Host ""
 
-            foreach ($lib in $libs) {
-              Write-Host $lib.FullName
-            }
+              foreach ($lib in $libs) {
+                  Write-Host $lib.FullName
+              }
           }
 
-      # ============================================================
-      # Mostrar estructura de framework/lib
-      # ============================================================
-
-      - name: Check framework lib directory
+      - name: Check external dependency files
         if: always()
         shell: powershell
         run: |
           Write-Host ""
-          Write-Host "======================================"
-          Write-Host "FRAMEWORK/LIB"
-          Write-Host "======================================"
+          Write-Host "========================================"
+          Write-Host "ARCHIVOS EXTERNOS"
+          Write-Host "========================================"
 
-          if (Test-Path "framework\lib") {
-            Get-ChildItem `
-              "framework\lib" `
-              -Recurse `
-              -ErrorAction SilentlyContinue |
-              ForEach-Object {
-                Write-Host $_.FullName
-              }
-          }
-          else {
-            Write-Host "framework\lib NO EXISTE"
-          }
+          Get-ChildItem `
+            "framework\external" `
+            -Recurse `
+            -Include "*.lib","*.dll","*.h" `
+            -ErrorAction SilentlyContinue |
+            ForEach-Object {
+              Write-Host $_.FullName
+            }
 
-      # ============================================================
-      # Compilar S3AIR
-      # ============================================================
-
-      - name: Build sonic3air
+      - name: Build S3AIR
         shell: cmd
         run: |
+          call framework\external\get_msbuild_path.bat
+
+          echo.
           echo ========================================
-          echo BUILDING SONIC3AIR
+          echo BUILDING SONIC 3 AIR
           echo ========================================
 
-          msbuild sonic3air.sln ^
+          "%msbuildPath%" sonic3air.sln ^
             /p:Configuration=Release ^
             /p:Platform=x64 ^
             /m ^
             /verbosity:minimal
-
-      # ============================================================
-      # Buscar EXE
-      # ============================================================
 
       - name: Find executable
         if: always()
         shell: powershell
         run: |
           Write-Host ""
-          Write-Host "======================================"
+          Write-Host "========================================"
           Write-Host "EXE ENCONTRADOS"
-          Write-Host "======================================"
+          Write-Host "========================================"
 
           $exes = Get-ChildItem `
             "." `
@@ -193,17 +142,13 @@ jobs:
             -ErrorAction SilentlyContinue
 
           if ($exes.Count -eq 0) {
-            Write-Host "NO SE ENCONTRARON EXE"
+              Write-Host "NO SE ENCONTRARON EXE"
           }
           else {
-            foreach ($exe in $exes) {
-              Write-Host $exe.FullName
-            }
+              foreach ($exe in $exes) {
+                  Write-Host $exe.FullName
+              }
           }
-
-      # ============================================================
-      # Subir EXE
-      # ============================================================
 
       - name: Upload build
         if: success()
