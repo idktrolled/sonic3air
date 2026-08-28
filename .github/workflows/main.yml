@@ -2,6 +2,7 @@ name: Build S3AIR Windows
 
 on:
   push:
+  workflow_dispatch:
 
 jobs:
   build:
@@ -12,24 +13,33 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
-
-      - name: Configure MSBuild
+      - name: Verify MSBuild
         shell: powershell
         run: |
+          Write-Host "======================================"
+          Write-Host "MSBUILD"
+          Write-Host "======================================"
 
+          $msbuild = Get-Command msbuild.exe -ErrorAction Stop
+
+          Write-Host "MSBuild encontrado:"
+          Write-Host $msbuild.Source
+
+          & $msbuild.Source -version
+
+      # ============================================================
+      # Crear get_msbuild_path.bat para los scripts originales
+      # ============================================================
+
+      - name: Configure MSBuild path
+        shell: powershell
+        run: |
           $msbuild = (Get-Command msbuild.exe).Source
 
-          Write-Host "MSBuild:"
-          Write-Host $msbuild
-
-          if (!(Test-Path $msbuild)) {
-              Write-Error "MSBuild no encontrado"
-              exit 1
-          }
+          Write-Host "MSBuild: $msbuild"
 
           $bat = @"
           @echo off
@@ -42,46 +52,64 @@ jobs:
             -Value $bat `
             -Encoding ASCII
 
+          Write-Host ""
+          Write-Host "get_msbuild_path.bat:"
+          Get-Content "framework\external\get_msbuild_path.bat"
 
-      - name: Verify MSBuild
-        shell: cmd
+      # ============================================================
+      # Mostrar configuraciones disponibles de CURL
+      # ============================================================
+
+      - name: Inspect CURL configurations
+        shell: powershell
         run: |
-          call framework\external\get_msbuild_path.bat
+          $projects = @(
+            "framework\external\curl\curl\projects\Windows\VC14.30\lib\libcurl.vcxproj",
+            "framework\external\curl\curl\projects\Windows\VC14.30\src\curl.vcxproj"
+          )
 
-          echo.
-          echo ==============================
-          echo MSBUILD COMMUNITY
-          echo ==============================
-          echo %msbuildPathCom%
+          foreach ($project in $projects) {
+            if (Test-Path $project) {
+              Write-Host ""
+              Write-Host "======================================"
+              Write-Host $project
+              Write-Host "======================================"
 
-          echo.
-          echo ==============================
-          echo MSBUILD PROFESSIONAL
-          echo ==============================
-          echo %msbuildPathPro%
+              Select-String `
+                -Path $project `
+                -Pattern "<ProjectConfiguration Include=" |
+                ForEach-Object {
+                  Write-Host $_.Line.Trim()
+                }
+            }
+          }
 
-          echo.
-          echo ==============================
-          echo VERSION
-          echo ==============================
-          "%msbuildPathCom%" -version
-
+      # ============================================================
+      # Construir dependencias
+      # ============================================================
 
       - name: Build external dependencies
         shell: cmd
         run: |
           cd framework\external
+
+          echo ========================================
+          echo BUILDING EXTERNAL DEPENDENCIES
+          echo ========================================
+
           call build_externals_windows.bat
 
+      # ============================================================
+      # Comprobar librerías
+      # ============================================================
 
       - name: Check generated libraries
         if: always()
         shell: powershell
         run: |
-
           Write-Host ""
           Write-Host "======================================"
-          Write-Host "LIBRERIAS GENERADAS"
+          Write-Host "LIBRERIAS .LIB ENCONTRADAS"
           Write-Host "======================================"
 
           $libs = Get-ChildItem `
@@ -91,47 +119,91 @@ jobs:
             -ErrorAction SilentlyContinue
 
           if ($libs.Count -eq 0) {
-              Write-Host "NO SE ENCONTRARON LIBRERIAS .LIB"
+            Write-Host "NO SE ENCONTRARON LIBRERIAS .LIB"
           }
           else {
-              Write-Host "Encontradas $($libs.Count) librerias:"
-              Write-Host ""
+            Write-Host "Encontradas $($libs.Count) librerias:"
+            Write-Host ""
 
-              foreach ($lib in $libs) {
-                  Write-Host $lib.FullName
-              }
+            foreach ($lib in $libs) {
+              Write-Host $lib.FullName
+            }
           }
 
+      # ============================================================
+      # Mostrar estructura de framework/lib
+      # ============================================================
+
+      - name: Check framework lib directory
+        if: always()
+        shell: powershell
+        run: |
+          Write-Host ""
+          Write-Host "======================================"
+          Write-Host "FRAMEWORK/LIB"
+          Write-Host "======================================"
+
+          if (Test-Path "framework\lib") {
+            Get-ChildItem `
+              "framework\lib" `
+              -Recurse `
+              -ErrorAction SilentlyContinue |
+              ForEach-Object {
+                Write-Host $_.FullName
+              }
+          }
+          else {
+            Write-Host "framework\lib NO EXISTE"
+          }
+
+      # ============================================================
+      # Compilar S3AIR
+      # ============================================================
 
       - name: Build sonic3air
         shell: cmd
         run: |
+          echo ========================================
+          echo BUILDING SONIC3AIR
+          echo ========================================
+
           msbuild sonic3air.sln ^
             /p:Configuration=Release ^
             /p:Platform=x64 ^
             /m ^
             /verbosity:minimal
 
+      # ============================================================
+      # Buscar EXE
+      # ============================================================
 
       - name: Find executable
         if: always()
         shell: powershell
         run: |
-
           Write-Host ""
           Write-Host "======================================"
           Write-Host "EXE ENCONTRADOS"
           Write-Host "======================================"
 
-          Get-ChildItem `
+          $exes = Get-ChildItem `
             "." `
             -Recurse `
             -Filter "*.exe" `
-            -ErrorAction SilentlyContinue |
-            ForEach-Object {
-                Write-Host $_.FullName
-            }
+            -ErrorAction SilentlyContinue
 
+          if ($exes.Count -eq 0) {
+            Write-Host "NO SE ENCONTRARON EXE"
+          }
+          else {
+            foreach ($exe in $exes) {
+              Write-Host $exe.FullName
+            }
+          }
+
+      # ============================================================
+      # Subir EXE
+      # ============================================================
 
       - name: Upload build
         if: success()
