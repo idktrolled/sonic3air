@@ -10,159 +10,230 @@ jobs:
 
     steps:
 
-      # =========================================
-      # 1. Descargar el repositorio
-      # =========================================
-      - name: Checkout repository
+      # ==========================================
+      # CHECKOUT
+      # ==========================================
+
+      - name: Checkout
         uses: actions/checkout@v4
 
 
-      # =========================================
-      # 2. Instalar/configurar MSBuild
-      # =========================================
+      # ==========================================
+      # MSBUILD
+      # ==========================================
+
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
 
-      # =========================================
-      # 3. Encontrar MSBuild automáticamente
-      # =========================================
-      - name: Detect MSBuild
+      # ==========================================
+      # INFORMACIÓN DEL ENTORNO
+      # ==========================================
+
+      - name: Check build environment
         shell: powershell
         run: |
-          Write-Host "========================================"
-          Write-Host "BUSCANDO MSBUILD"
-          Write-Host "========================================"
+          Write-Host "=============================="
+          Write-Host "MSBUILD"
+          Write-Host "=============================="
 
-          $msbuild = (Get-Command msbuild.exe -ErrorAction SilentlyContinue).Source
-
-          if (-not $msbuild) {
-              Write-Error "MSBuild no fue encontrado"
-              exit 1
-          }
-
-          Write-Host "MSBuild encontrado:"
-          Write-Host $msbuild
-
-          "MSBUILD_PATH=$msbuild" >> $env:GITHUB_ENV
-
-
-      # =========================================
-      # 4. Mostrar información del entorno
-      # =========================================
-      - name: Show build environment
-        shell: powershell
-        run: |
-          Write-Host "========================================"
-          Write-Host "ENTORNO"
-          Write-Host "========================================"
-
-          Write-Host "Windows:"
-          Get-CimInstance Win32_OperatingSystem |
-            Select-Object Caption, Version
-
-          Write-Host ""
-          Write-Host "MSBuild:"
+          where.exe msbuild
           msbuild -version
 
           Write-Host ""
-          Write-Host "Visual Studio:"
+          Write-Host "=============================="
+          Write-Host "VISUAL STUDIO"
+          Write-Host "=============================="
+
           Get-ChildItem `
             "C:\Program Files\Microsoft Visual Studio\2022" `
             -Directory `
             -ErrorAction SilentlyContinue |
-            Select-Object -ExpandProperty FullName
+            Select-Object FullName
 
 
-      # =========================================
-      # 5. Reemplazar get_msbuild_path.bat
-      # =========================================
-      - name: Configure get_msbuild_path.bat
+      # ==========================================
+      # LISTAR PROYECTOS EXTERNOS
+      # ==========================================
+
+      - name: Find external Visual Studio projects
         shell: powershell
         run: |
-          $msbuild = $env:MSBUILD_PATH
-
-          Write-Host "Configurando get_msbuild_path.bat"
-          Write-Host "Ruta:"
-          Write-Host $msbuild
-
-          $content = "@echo off`r`n"
-          $content += "set `"msbuildPathCom=$msbuild`"`r`n"
-          $content += "set `"msbuildPathPro=$msbuild`"`r`n"
-
-          Set-Content `
-            -Path "framework\external\get_msbuild_path.bat" `
-            -Value $content `
-            -Encoding ASCII
-
-          Write-Host ""
-          Write-Host "Archivo resultante:"
-          Get-Content "framework\external\get_msbuild_path.bat"
-
-
-      # =========================================
-      # 6. Verificar estructura del proyecto
-      # =========================================
-      - name: Check project files
-        shell: powershell
-        run: |
-          Write-Host "========================================"
-          Write-Host "ARCHIVOS IMPORTANTES"
-          Write-Host "========================================"
-
-          $files = @(
-            "sonic3air.sln",
-            "framework\external\build_externals_windows.bat",
-            "framework\external\get_msbuild_path.bat"
-          )
-
-          foreach ($file in $files) {
-              if (Test-Path $file) {
-                  Write-Host "[OK] $file"
-              }
-              else {
-                  Write-Host "[FALTA] $file"
-              }
-          }
-
-
-      # =========================================
-      # 7. Mostrar proyectos externos
-      # =========================================
-      - name: Find external projects
-        shell: powershell
-        run: |
-          Write-Host "========================================"
+          Write-Host "=============================="
           Write-Host "PROYECTOS EXTERNOS"
-          Write-Host "========================================"
+          Write-Host "=============================="
 
           Get-ChildItem `
             "framework\external" `
             -Recurse `
             -Include *.sln,*.vcxproj `
             -ErrorAction SilentlyContinue |
-            Select-Object -ExpandProperty FullName
+            ForEach-Object {
+              Write-Host $_.FullName
+            }
 
 
-      # =========================================
-      # 8. Compilar dependencias
-      # =========================================
-      - name: Build external dependencies
-        shell: cmd
-        run: |
-          cd framework\external
-          call build_externals_windows.bat
+      # ==========================================
+      # COMPILAR SDL
+      # ==========================================
 
-
-      # =========================================
-      # 9. Mostrar todas las LIB generadas
-      # =========================================
-      - name: Check generated LIB files
-        if: always()
+      - name: Build SDL
         shell: powershell
         run: |
+
+          $projects = Get-ChildItem `
+            "framework\external\sdl" `
+            -Recurse `
+            -Include *.sln,*.vcxproj `
+            -ErrorAction SilentlyContinue
+
+          foreach ($project in $projects) {
+
+            Write-Host ""
+            Write-Host "========================================"
+            Write-Host "Compilando SDL:"
+            Write-Host $project.FullName
+            Write-Host "========================================"
+
+            msbuild $project.FullName `
+              /p:Configuration=Release `
+              /p:Platform=x64 `
+              /m `
+              /verbosity:minimal
+          }
+
+
+      # ==========================================
+      # COMPILAR ZLIB
+      # ==========================================
+
+      - name: Build zlib
+        shell: powershell
+        run: |
+
+          $projects = Get-ChildItem `
+            "framework\external\zlib" `
+            -Recurse `
+            -Include *.sln,*.vcxproj `
+            -ErrorAction SilentlyContinue
+
+          foreach ($project in $projects) {
+
+            Write-Host ""
+            Write-Host "========================================"
+            Write-Host "Compilando zlib:"
+            Write-Host $project.FullName
+            Write-Host "========================================"
+
+            msbuild $project.FullName `
+              /p:Configuration=Release `
+              /p:Platform=x64 `
+              /m `
+              /verbosity:minimal
+          }
+
+
+      # ==========================================
+      # COMPILAR OGG/VORBIS
+      # ==========================================
+
+      - name: Build Ogg Vorbis
+        shell: powershell
+        run: |
+
+          $projects = Get-ChildItem `
+            "framework\external\ogg-vorbis" `
+            -Recurse `
+            -Include *.sln,*.vcxproj `
+            -ErrorAction SilentlyContinue
+
+          foreach ($project in $projects) {
+
+            Write-Host ""
+            Write-Host "========================================"
+            Write-Host "Compilando Ogg/Vorbis:"
+            Write-Host $project.FullName
+            Write-Host "========================================"
+
+            msbuild $project.FullName `
+              /p:Configuration=Release `
+              /p:Platform=x64 `
+              /m `
+              /verbosity:minimal
+          }
+
+
+      # ==========================================
+      # COMPILAR CURL
+      # ==========================================
+
+      - name: Build curl
+        shell: powershell
+        run: |
+
+          $projects = Get-ChildItem `
+            "framework\external\curl" `
+            -Recurse `
+            -Include *.sln,*.vcxproj `
+            -ErrorAction SilentlyContinue
+
+          foreach ($project in $projects) {
+
+            Write-Host ""
+            Write-Host "========================================"
+            Write-Host "Compilando CURL:"
+            Write-Host $project.FullName
+            Write-Host "========================================"
+
+            msbuild $project.FullName `
+              /p:Configuration=Release `
+              /p:Platform=x64 `
+              /m `
+              /verbosity:minimal
+          }
+
+
+      # ==========================================
+      # COMPILAR IMGUI
+      # ==========================================
+
+      - name: Build ImGui
+        shell: powershell
+        run: |
+
+          $projects = Get-ChildItem `
+            "framework\external\imgui" `
+            -Recurse `
+            -Include *.sln,*.vcxproj `
+            -ErrorAction SilentlyContinue
+
+          foreach ($project in $projects) {
+
+            Write-Host ""
+            Write-Host "========================================"
+            Write-Host "Compilando ImGui:"
+            Write-Host $project.FullName
+            Write-Host "========================================"
+
+            msbuild $project.FullName `
+              /p:Configuration=Release `
+              /p:Platform=x64 `
+              /m `
+              /verbosity:minimal
+          }
+
+
+      # ==========================================
+      # MOSTRAR TODAS LAS LIB
+      # ==========================================
+
+      - name: Find generated LIB files
+        shell: powershell
+        run: |
+
+          Write-Host ""
           Write-Host "========================================"
-          Write-Host "ARCHIVOS .LIB"
+          Write-Host "LIBRERÍAS GENERADAS"
           Write-Host "========================================"
 
           $libs = Get-ChildItem `
@@ -172,82 +243,99 @@ jobs:
             -ErrorAction SilentlyContinue
 
           if ($libs.Count -eq 0) {
-              Write-Host "NO SE ENCONTRARON ARCHIVOS .LIB"
-          }
-          else {
-              Write-Host "LIBs encontradas: $($libs.Count)"
-              Write-Host ""
 
-              foreach ($lib in $libs) {
-                  Write-Host $lib.FullName
-              }
+            Write-Error "NO SE GENERÓ NINGÚN ARCHIVO .LIB"
+
+            exit 1
           }
 
+          foreach ($lib in $libs) {
+            Write-Host $lib.FullName
+          }
 
-      # =========================================
-      # 10. Mostrar framework/lib
-      # =========================================
-      - name: Check framework lib directory
-        if: always()
+          Write-Host ""
+          Write-Host "Total: $($libs.Count)"
+
+
+      # ==========================================
+      # COPIAR LIB AL DIRECTORIO ESPERADO
+      # ==========================================
+
+      - name: Prepare framework libraries
         shell: powershell
         run: |
-          Write-Host "========================================"
-          Write-Host "FRAMEWORK/LIB"
-          Write-Host "========================================"
 
-          if (Test-Path "framework\lib") {
-              Get-ChildItem `
-                "framework\lib" `
-                -Recurse `
-                -ErrorAction SilentlyContinue |
-                Select-Object FullName
-          }
-          else {
-              Write-Host "framework/lib NO EXISTE"
-          }
+          New-Item `
+            -ItemType Directory `
+            -Force `
+            -Path "framework\lib\x64" |
+            Out-Null
 
-
-      # =========================================
-      # 11. Detener si no existen LIBs
-      # =========================================
-      - name: Verify dependencies
-        shell: powershell
-        run: |
           $libs = Get-ChildItem `
-            "framework\lib" `
+            "." `
             -Recurse `
             -Filter "*.lib" `
             -ErrorAction SilentlyContinue
 
-          if ($libs.Count -eq 0) {
-              Write-Error "Las dependencias externas no generaron ningún .lib."
-              Write-Error "No se puede continuar con sonic3air."
-              exit 1
+          foreach ($lib in $libs) {
+
+            Copy-Item `
+              $lib.FullName `
+              "framework\lib\x64\" `
+              -Force
           }
 
-          Write-Host "Dependencias encontradas: $($libs.Count) LIBs"
+          Write-Host ""
+          Write-Host "Librerías copiadas a framework/lib/x64"
 
 
-      # =========================================
-      # 12. Compilar Sonic 3 A.I.R.
-      # =========================================
-      - name: Build sonic3air
-        shell: cmd
+      # ==========================================
+      # VERIFICAR FRAMEWORK/LIB
+      # ==========================================
+
+      - name: Verify framework libraries
+        shell: powershell
         run: |
-          msbuild sonic3air.sln ^
-            /p:Configuration=Release ^
-            /p:Platform=x64 ^
-            /m ^
+
+          Write-Host "========================================"
+          Write-Host "FRAMEWORK/LIB/X64"
+          Write-Host "========================================"
+
+          Get-ChildItem `
+            "framework\lib\x64" `
+            -Filter "*.lib" `
+            -ErrorAction SilentlyContinue |
+            Select-Object Name,Length
+
+
+      # ==========================================
+      # COMPILAR SONIC3AIR
+      # ==========================================
+
+      - name: Build sonic3air
+        shell: powershell
+        run: |
+
+          Write-Host "========================================"
+          Write-Host "COMPILANDO SONIC3AIR"
+          Write-Host "========================================"
+
+          msbuild sonic3air.sln `
+            /p:Configuration=Release `
+            /p:Platform=x64 `
+            /m `
             /verbosity:minimal
 
 
-      # =========================================
-      # 13. Buscar EXE
-      # =========================================
+      # ==========================================
+      # BUSCAR EXE
+      # ==========================================
+
       - name: Find executable
         if: always()
         shell: powershell
         run: |
+
           Write-Host "========================================"
           Write-Host "EJECUTABLES"
           Write-Host "========================================"
@@ -258,24 +346,23 @@ jobs:
             -Filter "*.exe" `
             -ErrorAction SilentlyContinue
 
-          if ($exes.Count -eq 0) {
-              Write-Host "NO SE ENCONTRARON EXE"
-          }
-          else {
-              foreach ($exe in $exes) {
-                  Write-Host $exe.FullName
-              }
+          foreach ($exe in $exes) {
+            Write-Host $exe.FullName
           }
 
 
-      # =========================================
-      # 14. Subir el EXE
-      # =========================================
-      - name: Upload Windows build
+      # ==========================================
+      # SUBIR BUILD
+      # ==========================================
+
+      - name: Upload build
         if: success()
         uses: actions/upload-artifact@v4
+
         with:
           name: S3AIR-Windows-x64
+
           path: |
             **/*.exe
+
           if-no-files-found: error
