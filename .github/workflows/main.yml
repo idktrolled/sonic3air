@@ -1,57 +1,281 @@
 name: Build S3AIR Windows
 
 on:
-  push:
+  workflow_dispatch:
 
 jobs:
   build:
+    name: Build S3AIR Windows x64
     runs-on: windows-2022
 
     steps:
-      - name: Checkout
+
+      # =========================================
+      # 1. Descargar el repositorio
+      # =========================================
+      - name: Checkout repository
         uses: actions/checkout@v4
 
+
+      # =========================================
+      # 2. Instalar/configurar MSBuild
+      # =========================================
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
-      - name: Comprobar MSBuild
+
+      # =========================================
+      # 3. Encontrar MSBuild automáticamente
+      # =========================================
+      - name: Detect MSBuild
         shell: powershell
         run: |
+          Write-Host "========================================"
+          Write-Host "BUSCANDO MSBUILD"
+          Write-Host "========================================"
+
+          $msbuild = (Get-Command msbuild.exe -ErrorAction SilentlyContinue).Source
+
+          if (-not $msbuild) {
+              Write-Error "MSBuild no fue encontrado"
+              exit 1
+          }
+
+          Write-Host "MSBuild encontrado:"
+          Write-Host $msbuild
+
+          "MSBUILD_PATH=$msbuild" >> $env:GITHUB_ENV
+
+
+      # =========================================
+      # 4. Mostrar información del entorno
+      # =========================================
+      - name: Show build environment
+        shell: powershell
+        run: |
+          Write-Host "========================================"
+          Write-Host "ENTORNO"
+          Write-Host "========================================"
+
+          Write-Host "Windows:"
+          Get-CimInstance Win32_OperatingSystem |
+            Select-Object Caption, Version
+
+          Write-Host ""
+          Write-Host "MSBuild:"
           msbuild -version
-          where.exe msbuild
 
-      - name: Configurar get_msbuild_path.bat
+          Write-Host ""
+          Write-Host "Visual Studio:"
+          Get-ChildItem `
+            "C:\Program Files\Microsoft Visual Studio\2022" `
+            -Directory `
+            -ErrorAction SilentlyContinue |
+            Select-Object -ExpandProperty FullName
+
+
+      # =========================================
+      # 5. Reemplazar get_msbuild_path.bat
+      # =========================================
+      - name: Configure get_msbuild_path.bat
         shell: powershell
         run: |
-          $file = "framework\external\get_msbuild_path.bat"
+          $msbuild = $env:MSBUILD_PATH
 
-          $content = @'
-          @echo off
-          set "msbuildPathCom=%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe"
-          set "msbuildPathPro=%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe"
-          '@
+          Write-Host "Configurando get_msbuild_path.bat"
+          Write-Host "Ruta:"
+          Write-Host $msbuild
 
-          Set-Content -Path $file -Value $content
+          $content = "@echo off`r`n"
+          $content += "set `"msbuildPathCom=$msbuild`"`r`n"
+          $content += "set `"msbuildPathPro=$msbuild`"`r`n"
 
-      - name: Build externals
+          Set-Content `
+            -Path "framework\external\get_msbuild_path.bat" `
+            -Value $content `
+            -Encoding ASCII
+
+          Write-Host ""
+          Write-Host "Archivo resultante:"
+          Get-Content "framework\external\get_msbuild_path.bat"
+
+
+      # =========================================
+      # 6. Verificar estructura del proyecto
+      # =========================================
+      - name: Check project files
+        shell: powershell
+        run: |
+          Write-Host "========================================"
+          Write-Host "ARCHIVOS IMPORTANTES"
+          Write-Host "========================================"
+
+          $files = @(
+            "sonic3air.sln",
+            "framework\external\build_externals_windows.bat",
+            "framework\external\get_msbuild_path.bat"
+          )
+
+          foreach ($file in $files) {
+              if (Test-Path $file) {
+                  Write-Host "[OK] $file"
+              }
+              else {
+                  Write-Host "[FALTA] $file"
+              }
+          }
+
+
+      # =========================================
+      # 7. Mostrar proyectos externos
+      # =========================================
+      - name: Find external projects
+        shell: powershell
+        run: |
+          Write-Host "========================================"
+          Write-Host "PROYECTOS EXTERNOS"
+          Write-Host "========================================"
+
+          Get-ChildItem `
+            "framework\external" `
+            -Recurse `
+            -Include *.sln,*.vcxproj `
+            -ErrorAction SilentlyContinue |
+            Select-Object -ExpandProperty FullName
+
+
+      # =========================================
+      # 8. Compilar dependencias
+      # =========================================
+      - name: Build external dependencies
         shell: cmd
         run: |
           cd framework\external
           call build_externals_windows.bat
 
-      - name: Build S3AIR
+
+      # =========================================
+      # 9. Mostrar todas las LIB generadas
+      # =========================================
+      - name: Check generated LIB files
+        if: always()
         shell: powershell
         run: |
-          msbuild sonic3air.sln /p:Configuration=Release /p:Platform=x64 /m
+          Write-Host "========================================"
+          Write-Host "ARCHIVOS .LIB"
+          Write-Host "========================================"
 
-      - name: Find EXE
+          $libs = Get-ChildItem `
+            "." `
+            -Recurse `
+            -Filter "*.lib" `
+            -ErrorAction SilentlyContinue
+
+          if ($libs.Count -eq 0) {
+              Write-Host "NO SE ENCONTRARON ARCHIVOS .LIB"
+          }
+          else {
+              Write-Host "LIBs encontradas: $($libs.Count)"
+              Write-Host ""
+
+              foreach ($lib in $libs) {
+                  Write-Host $lib.FullName
+              }
+          }
+
+
+      # =========================================
+      # 10. Mostrar framework/lib
+      # =========================================
+      - name: Check framework lib directory
+        if: always()
         shell: powershell
         run: |
-          Get-ChildItem -Path . -Filter *.exe -Recurse
+          Write-Host "========================================"
+          Write-Host "FRAMEWORK/LIB"
+          Write-Host "========================================"
 
-      - name: Upload EXE
+          if (Test-Path "framework\lib") {
+              Get-ChildItem `
+                "framework\lib" `
+                -Recurse `
+                -ErrorAction SilentlyContinue |
+                Select-Object FullName
+          }
+          else {
+              Write-Host "framework/lib NO EXISTE"
+          }
+
+
+      # =========================================
+      # 11. Detener si no existen LIBs
+      # =========================================
+      - name: Verify dependencies
+        shell: powershell
+        run: |
+          $libs = Get-ChildItem `
+            "framework\lib" `
+            -Recurse `
+            -Filter "*.lib" `
+            -ErrorAction SilentlyContinue
+
+          if ($libs.Count -eq 0) {
+              Write-Error "Las dependencias externas no generaron ningún .lib."
+              Write-Error "No se puede continuar con sonic3air."
+              exit 1
+          }
+
+          Write-Host "Dependencias encontradas: $($libs.Count) LIBs"
+
+
+      # =========================================
+      # 12. Compilar Sonic 3 A.I.R.
+      # =========================================
+      - name: Build sonic3air
+        shell: cmd
+        run: |
+          msbuild sonic3air.sln ^
+            /p:Configuration=Release ^
+            /p:Platform=x64 ^
+            /m ^
+            /verbosity:minimal
+
+
+      # =========================================
+      # 13. Buscar EXE
+      # =========================================
+      - name: Find executable
+        if: always()
+        shell: powershell
+        run: |
+          Write-Host "========================================"
+          Write-Host "EJECUTABLES"
+          Write-Host "========================================"
+
+          $exes = Get-ChildItem `
+            "." `
+            -Recurse `
+            -Filter "*.exe" `
+            -ErrorAction SilentlyContinue
+
+          if ($exes.Count -eq 0) {
+              Write-Host "NO SE ENCONTRARON EXE"
+          }
+          else {
+              foreach ($exe in $exes) {
+                  Write-Host $exe.FullName
+              }
+          }
+
+
+      # =========================================
+      # 14. Subir el EXE
+      # =========================================
+      - name: Upload Windows build
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: S3AIR-Windows
+          name: S3AIR-Windows-x64
           path: |
             **/*.exe
+          if-no-files-found: error
