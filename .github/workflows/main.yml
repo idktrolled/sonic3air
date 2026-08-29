@@ -19,9 +19,9 @@ jobs:
 
       - name: Build external dependencies
         shell: cmd
+        working-directory: framework/external
         run: |
-          cd framework\external
-          build_externals_windows.bat
+          call build_externals_windows.bat
 
       - name: Build Sonic 3 A.I.R.
         shell: cmd
