@@ -6,19 +6,21 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@main
-
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@main
-
       - name: Build external dependencies
         shell: cmd
         working-directory: framework/external
         run: |
           call build_externals_windows.bat
+      - name: Build Sonic 3 A.I.R.
+        shell: cmd
+        working-directory: Oxygen/sonic3air/build/_vstudio
+        run: |
+          msbuild sonic3air.sln /p:Configuration=Release /p:Platform=x64
       - name: Build Lemon Script
         shell: cmd
         working-directory: Oxygen/lemonscript/build/_vstudio
@@ -34,11 +36,6 @@ jobs:
         working-directory: Oxygen/oxygenengine/build/_vstudio
         run: |
           msbuild oxygenengine.sln /p:Configuration=Release /p:Platform=x64
-      - name: Build Sonic 3 A.I.R.
-        shell: cmd
-        working-directory: Oxygen/sonic3air/build/_vstudio
-        run: |
-          msbuild sonic3air.sln /p:Configuration=Release /p:Platform=x64
       - name: Upload build
         uses: actions/upload-artifact@v4
         with:
