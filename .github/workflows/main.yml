@@ -25,6 +25,7 @@ jobs:
 
       - name: Build Sonic 3 A.I.R.
         shell: cmd
+        working-directory: sonic3air/Oxygen/sonic3air/build/_vstudio
         run: |
           msbuild sonic3air.sln /p:Configuration=Release /p:Platform=x64
 
