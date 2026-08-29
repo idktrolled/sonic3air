@@ -1,12 +1,14 @@
-name: Build S3AIR Windows
+name: Build Sonic 3 A.I.R. Windows
 
 on:
-  push:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
   build:
-    runs-on: windows-2022
+    runs-on: windows-latest
 
     steps:
       - name: Checkout
@@ -15,163 +17,20 @@ jobs:
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
-      - name: Find MSBuild
-        shell: powershell
-        run: |
-          $msbuild = (Get-Command msbuild.exe).Source
-
-          Write-Host "========================================"
-          Write-Host "MSBUILD"
-          Write-Host "========================================"
-          Write-Host $msbuild
-
-          if (!(Test-Path $msbuild)) {
-              Write-Error "MSBuild no encontrado"
-              exit 1
-          }
-
-          "MSBUILD_PATH=$msbuild" >> $env:GITHUB_ENV
-
-      - name: Create get_msbuild_path.bat
-        shell: powershell
-        run: |
-          $bat = @"
-          @echo off
-          set "msbuildPath=$env:MSBUILD_PATH"
-          set "msbuildPathCom=$env:MSBUILD_PATH"
-          set "msbuildPathPro=$env:MSBUILD_PATH"
-
-          if not exist "%msbuildPath%" (
-              echo ERROR: MSBuild no encontrado
-              exit /b 1
-          )
-
-          echo Using MSBuild:
-          echo %msbuildPath%
-          "@
-
-          Set-Content `
-            -Path "framework\external\get_msbuild_path.bat" `
-            -Value $bat `
-            -Encoding ASCII
-
-      - name: Verify MSBuild
-        shell: cmd
-        run: |
-          call framework\external\get_msbuild_path.bat
-
-          echo.
-          echo ========================================
-          echo MSBUILD VERSION
-          echo ========================================
-
-          "%msbuildPath%" -version
-
       - name: Build external dependencies
         shell: cmd
         run: |
           cd framework\external
+          build_externals_windows.bat
 
-          echo.
-          echo ========================================
-          echo BUILDING EXTERNAL DEPENDENCIES
-          echo ========================================
-
-          call build_externals_windows.bat no_pause
-
-      - name: Diagnose external libraries
-        if: always()
-        shell: powershell
-        run: |
-          Write-Host ""
-          Write-Host "========================================"
-          Write-Host "TODAS LAS LIBRERIAS .LIB ENCONTRADAS"
-          Write-Host "========================================"
-
-          $libs = Get-ChildItem `
-            "framework\external" `
-            -Recurse `
-            -Filter "*.lib" `
-            -ErrorAction SilentlyContinue
-
-          if ($libs.Count -eq 0) {
-              Write-Host "NO SE ENCONTRO NINGUNA LIBRERIA .LIB"
-          }
-          else {
-              Write-Host "Se encontraron $($libs.Count) librerias:"
-              Write-Host ""
-
-              foreach ($lib in $libs) {
-                  Write-Host $lib.FullName
-              }
-          }
-
-      - name: Diagnose external folders
-        if: always()
-        shell: powershell
-        run: |
-          Write-Host ""
-          Write-Host "========================================"
-          Write-Host "ESTRUCTURA DE FRAMEWORK/EXTERNAL"
-          Write-Host "========================================"
-
-          Get-ChildItem `
-            "framework\external" `
-            -Recurse `
-            -File `
-            -ErrorAction SilentlyContinue |
-            Where-Object {
-              $_.Extension -in ".lib", ".dll", ".bat"
-            } |
-            ForEach-Object {
-              Write-Host $_.FullName
-            }
-
-      - name: Build S3AIR
+      - name: Build Sonic 3 A.I.R.
         shell: cmd
         run: |
-          call framework\external\get_msbuild_path.bat
-
-          echo.
-          echo ========================================
-          echo BUILDING SONIC 3 AIR
-          echo ========================================
-
-          "%msbuildPath%" sonic3air.sln ^
-            /p:Configuration=Release ^
-            /p:Platform=x64 ^
-            /m ^
-            /verbosity:minimal
-
-      - name: Find executable
-        if: always()
-        shell: powershell
-        run: |
-          Write-Host ""
-          Write-Host "========================================"
-          Write-Host "EXE ENCONTRADOS"
-          Write-Host "========================================"
-
-          $exes = Get-ChildItem `
-            "." `
-            -Recurse `
-            -Filter "*.exe" `
-            -ErrorAction SilentlyContinue
-
-          if ($exes.Count -eq 0) {
-              Write-Host "NO SE ENCONTRARON EXE"
-          }
-          else {
-              foreach ($exe in $exes) {
-                  Write-Host $exe.FullName
-              }
-          }
+          msbuild sonic3air.sln /m /p:Configuration=Release /p:Platform=x64
 
       - name: Upload build
-        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: S3AIR-Windows-x64
+          name: Sonic3AIR-Windows-x64
           path: |
             **/*.exe
-          if-no-files-found: error
