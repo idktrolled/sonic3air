@@ -22,7 +22,7 @@ jobs:
         uses: microsoft/setup-msbuild@v2
 
       - name: Prepare game data
-        working-directory: Oxygen/sonic3air/build/_vstudio
+        working-directory: framework/external
         shell: cmd
         run: |
           call mastering_build_data_64bit.bat no_pause
