@@ -1,15 +1,19 @@
-name: Build Sonic 3 A.I.R. Windows x64
-on: push
+name: Build Sonic 3 A.I.R. - Windows
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022
 
     steps:
-      # Descargar el repositorio
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Configurar MSBuild
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
@@ -18,109 +22,14 @@ jobs:
         working-directory: framework/external
         run: |
           call build_externals_windows.bat
-
-      # Instalar 7-Zip
-      - name: Setup 7-Zip
-        run: |
-          choco install 7zip -y --no-progress
-
-      # Preparar los datos del juego
-      - name: Build game data
-        working-directory: Oxygen/sonic3air/___internal/mastering
-        shell: cmd
-        run: |
-          call mastering_build_data_64bit.bat no_pause
-
-      # Crear carpeta _MASTER
-      - name: Prepare master directory
-        working-directory: Oxygen/sonic3air
-        shell: cmd
-        run: |
-          rmdir "_MASTER" /s /q 2>nul
-          mkdir "_MASTER\sonic3air_game"
-
-      # Compilar Oxygen Engine
-      - name: Build Oxygen Engine
-        working-directory: Oxygen/sonic3air
-        run: |
-          msbuild "..\oxygenengine\build\_vstudio\oxygenengine.sln" ^
-            /property:Configuration=Release ^
-            /property:Platform=x64 ^
-            /verbosity:minimal
-
-      # Compilar Sonic 3 A.I.R.
       - name: Build Sonic 3 A.I.R.
-        working-directory: Oxygen/sonic3air
-        run: |
-          msbuild "build\_vstudio\sonic3air.sln" ^
-            /property:Configuration=Release ^
-            /property:Platform=x64 ^
-            /verbosity:minimal
-
-      # Copiar plantilla principal
-      - name: Prepare Sonic 3 A.I.R. package
-        working-directory: Oxygen/sonic3air
         shell: cmd
+        working-directory: Oxygen/sonic3air/build/_vstudio
         run: |
-          robocopy "_master_image_template" "_MASTER\sonic3air_game" /e
-
-          del "_MASTER\sonic3air_game\data\audioremaster.bin" 2>nul
-
-          copy "bin\Release_x64\*.exe" "_MASTER\sonic3air_game"
-
-          copy "source\external\discord_game_sdk\lib\x86_64\discord_game_sdk.dll" "_MASTER\sonic3air_game"
-
-      # Añadir Oxygen Engine
-      - name: Add Oxygen Engine
-        working-directory: Oxygen/sonic3air
-        shell: cmd
-        run: |
-          robocopy "..\oxygenengine\_master_image_template" "_MASTER\sonic3air_game\bonus\oxygenengine" /e
-
-          copy "..\oxygenengine\bin\Release_x64\OxygenApp.exe" "_MASTER\sonic3air_game\bonus\oxygenengine\"
-
-          mkdir "_MASTER\sonic3air_game\bonus\oxygenengine\data" 2>nul
-
-          robocopy "..\oxygenengine\data" "_MASTER\sonic3air_game\bonus\oxygenengine\data" /e
-
-      # Añadir Sonic 3 A.I.R. Dev
-      - name: Add Sonic 3 A.I.R. Dev
-        working-directory: Oxygen/sonic3air
-        shell: cmd
-        run: |
-          robocopy "scripts" "_MASTER\sonic3air_game\bonus\sonic3air_dev\scripts" /e
-
-      # Crear ZIP
-      - name: Create game ZIP
-        working-directory: Oxygen/sonic3air
-        shell: cmd
-        run: |
-          cd "_MASTER"
-          7z a -tzip -r "sonic3air_game.zip" "sonic3air_game"
-
-      # Preparar artifacts
-      - name: Prepare artifacts
-        working-directory: Oxygen/sonic3air
-        shell: cmd
-        run: |
-          mkdir "_MASTER\artifacts\bin" 2>nul
-
-          copy "bin\Release_x64\*.exe" "_MASTER\artifacts\bin"
-          copy "bin\Release_x64\*.pdb" "_MASTER\artifacts\bin"
-
-      # Crear artifacts.7z
-      - name: Create artifacts archive
-        working-directory: Oxygen/sonic3air
-        shell: cmd
-        run: |
-          cd "_MASTER"
-          7z a -t7z -mx1 -r "artifacts.7z" "artifacts"
-
-      # Subir resultados a GitHub Actions
-      - name: Upload build artifacts
+          msbuild sonic3air.sln /p:Configuration=Release /p:Platform=x64
+      - name: Upload build
         uses: actions/upload-artifact@v4
         with:
-          name: Sonic3AIR-Windows-x64
+          name: sonic3air-windows
           path: |
-            Oxygen/sonic3air/_MASTER/sonic3air_game.zip
-            Oxygen/sonic3air/_MASTER/artifacts.7z
+            **/*.exe
