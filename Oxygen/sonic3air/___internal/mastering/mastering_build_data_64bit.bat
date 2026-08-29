@@ -13,6 +13,9 @@ mkdir "%outputDir%\data"
 :: Make sure the Release build is up-to-date
 %msbuildPath% build\_vstudio\sonic3air.sln /property:Configuration=Release /property:Platform=x64 -verbosity:minimal
 
+:: Update auto-generated C++ script binding reference and run script nativization
+"bin\Release_x64\Sonic3AIR.exe" -dumpcppdefinitions -nativize
+
 echo INICIANDO PRUEBA SONIC3AIR
 
 start "" /B "bin\Release_x64\Sonic3AIR.exe"
@@ -26,9 +29,6 @@ echo TERMINAR SONIC3AIR
 taskkill /F /IM Sonic3AIR.exe >nul 2>&1
 
 echo SONIC3AIR CERRADO
-
-:: Update auto-generated C++ script binding reference and run script nativization
-"bin\Release_x64\Sonic3AIR.exe" -dumpcppdefinitions -nativize
 
 :: Build data packages and meta data
 "bin\Release_x64\Sonic3AIR.exe" -pack
