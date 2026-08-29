@@ -1,14 +1,14 @@
-name: Build Sonic 3 A.I.R. Windows
+name: Build Sonic 3 A.I.R. - Windows
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022
 
     steps:
       - name: Checkout
@@ -19,26 +19,17 @@ jobs:
 
       - name: Build external dependencies
         shell: cmd
-        working-directory: framework/external
         run: |
-          call build_externals_windows.bat
+          framework\external\build_externals_windows.bat
 
-      - name: Run Windows mastering
-        shell: cmd
-        working-directory: Oxygen/sonic3air/___internal/mastering
-        run: |
-          call mastering_windows_64bit.bat
-
-      - name: Check master output
+      - name: Build Sonic 3 A.I.R.
         shell: cmd
         run: |
-          echo ===== Oxygen/_MASTER =====
-          dir /s /b Oxygen\_MASTER
+          msbuild sonic3air.sln /p:Configuration=Release /p:Platform=x64
 
-      - name: Upload Sonic 3 A.I.R. package
+      - name: Upload build
         uses: actions/upload-artifact@v4
         with:
-          name: Sonic3AIR-Windows-x64
+          name: sonic3air-windows
           path: |
-            Oxygen/_MASTER/sonic3air_game.zip
-          if-no-files-found: error
+            **/*.exe
