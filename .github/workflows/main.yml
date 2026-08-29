@@ -13,6 +13,12 @@ jobs:
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
+      - name: Build external dependencies
+        shell: cmd
+        working-directory: framework/external
+        run: |
+          call build_externals_windows.bat
+
       # Instalar 7-Zip
       - name: Setup 7-Zip
         run: |
