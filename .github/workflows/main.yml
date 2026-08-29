@@ -23,54 +23,22 @@ jobs:
         run: |
           call build_externals_windows.bat
 
-      - name: Build package data
+      - name: Run Windows mastering
         shell: cmd
-        working-directory: Oxygen/sonic3air/build/_vstudio
+        working-directory: Oxygen/sonic3air/___internal/mastering
         run: |
-          call mastering_build_data_64bit.bat no_pause
+          call mastering_windows_64bit.bat
 
-      - name: Build Oxygen Engine
-        shell: cmd
-        run: |
-          msbuild "Oxygen/oxygenengine/build/_vstudio/oxygenengine.sln" /p:Configuration=Release /p:Platform=x64 /verbosity:minimal
-
-      - name: Build Sonic 3 A.I.R.
+      - name: Check master output
         shell: cmd
         run: |
-          msbuild "Oxygen/sonic3air/build/_vstudio/sonic3air.sln" /p:Configuration=Release /p:Platform=x64 /verbosity:minimal
+          echo ===== Oxygen/_MASTER =====
+          dir /s /b Oxygen\_MASTER
 
-      - name: Create master package
-        shell: cmd
-        run: |
-          set "DEST=Oxygen/_MASTER"
-          set "OUTPUT=%DEST%/sonic3air_game"
-
-          rmdir "%DEST%" /s /q 2>nul
-          mkdir "%OUTPUT%"
-
-          robocopy "Oxygen/sonic3air/_master_image_template" "%OUTPUT%" /e
-
-          del "%OUTPUT%/data/audioremaster.bin" 2>nul
-
-          copy "Oxygen/sonic3air/bin/Release_x64/*.exe" "%OUTPUT%"
-          copy "Oxygen/sonic3air/source/external/discord_game_sdk/lib/x86_64/discord_game_sdk.dll" "%OUTPUT%"
-
-          robocopy "Oxygen/oxygenengine/_master_image_template" "%OUTPUT%/bonus/oxygenengine" /e
-          copy "Oxygen/oxygenengine/bin/Release_x64/OxygenApp.exe" "%OUTPUT%/bonus/oxygenengine/"
-
-          mkdir "%OUTPUT%/data" 2>nul
-          robocopy "Oxygen/oxygenengine/data" "%OUTPUT%/bonus/oxygenengine/data" /e
-
-          robocopy "Oxygen/sonic3air/scripts" "%OUTPUT%/bonus/sonic3air_dev/scripts" /e
-
-      - name: Create ZIP
-        shell: cmd
-        run: |
-          powershell -Command "Compress-Archive -Path 'Oxygen/_MASTER/sonic3air_game' -DestinationPath 'Oxygen/_MASTER/sonic3air_game.zip' -Force"
-
-      - name: Upload master package
+      - name: Upload Sonic 3 A.I.R. package
         uses: actions/upload-artifact@v4
         with:
           name: Sonic3AIR-Windows-x64
           path: |
             Oxygen/_MASTER/sonic3air_game.zip
+          if-no-files-found: error
