@@ -1,27 +1,39 @@
 name: Build Sonic 3 A.I.R. - Windows
-
 on:
   push:
     branches:
       - main
-  workflow_dispatch:
-
 jobs:
   build:
-    runs-on: windows-2022
+    runs-on: windows-latest
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@main
 
       - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v2
+        uses: microsoft/setup-msbuild@main
 
       - name: Build external dependencies
         shell: cmd
         working-directory: framework/external
         run: |
           call build_externals_windows.bat
+      - name: Build Lemon Script
+        shell: cmd
+        working-directory: Oxygen/lemonscript/build/_vstudio
+        run: |
+          msbuild lemonscript.sln /p:Configuration=Release /p:Platform=x64
+      - name: Build Oxygen Server
+        shell: cmd
+        working-directory: Oxygen/oxygenserver/build/_vstudio
+        run: |
+          msbuild oxygenserver.sln /p:Configuration=Release /p:Platform=x64
+      - name: Build Oxygen Engine
+        shell: cmd
+        working-directory: Oxygen/oxygenengine/build/_vstudio
+        run: |
+          msbuild oxygenengine.sln /p:Configuration=Release /p:Platform=x64
       - name: Build Sonic 3 A.I.R.
         shell: cmd
         working-directory: Oxygen/sonic3air/build/_vstudio
