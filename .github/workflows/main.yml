@@ -27,12 +27,6 @@ jobs:
         run: |
           call mastering_windows_64bit.bat
 
-      - name: Build Sonic 3 A.I.R.
-        shell: cmd
-        working-directory: Oxygen/sonic3air/build/_vstudio
-        run: |
-          msbuild sonic3air.sln /p:Configuration=Release /p:Platform=x64
-
       - name: Upload build
         uses: actions/upload-artifact@main
         with:
