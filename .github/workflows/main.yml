@@ -1,8 +1,5 @@
 name: Build Sonic 3 A.I.R. Windows x64
-
-on:
-  workflow_dispatch:
-
+on: push
 jobs:
   build:
     runs-on: windows-latest
