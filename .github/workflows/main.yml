@@ -21,6 +21,7 @@ jobs:
       # Preparar los datos del juego
       - name: Build game data
         working-directory: Oxygen/sonic3air/___internal/mastering
+        shell: cmd
         run: |
           call mastering_build_data_64bit.bat no_pause
 
