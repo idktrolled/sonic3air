@@ -1,44 +1,189 @@
-name: Build Sonic 3 A.I.R. - Windows
+name: Build Sonic 3 A.I.R. Windows x64
+
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
+      - master
+
 jobs:
   build:
     runs-on: windows-latest
+
     steps:
       - name: Checkout
-        uses: actions/checkout@main
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
       - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@main
-      - name: Build external dependencies
-        shell: cmd
-        working-directory: framework/external
-        run: |
-          call build_externals_windows.bat
-      - name: Build Sonic 3 A.I.R.
-        shell: cmd
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Prepare game data
         working-directory: Oxygen/sonic3air/build/_vstudio
-        run: |
-          msbuild sonic3air.sln /p:Configuration=Release /p:Platform=x64
-      - name: Build Lemon Script
         shell: cmd
-        working-directory: Oxygen/lemonscript/build/_vstudio
         run: |
-          msbuild lemonscript.sln /p:Configuration=Release /p:Platform=x64
-      - name: Build Oxygen Server
-        shell: cmd
-        working-directory: Oxygen/oxygenserver/build/_vstudio
-        run: |
-          msbuild oxygenserver.sln /p:Configuration=Release /p:Platform=x64
+          call mastering_build_data_64bit.bat no_pause
+          if errorlevel 1 exit /b 1
+
       - name: Build Oxygen Engine
+        working-directory: Oxygen/sonic3air
         shell: cmd
-        working-directory: Oxygen/oxygenengine/build/_vstudio
         run: |
-          msbuild oxygenengine.sln /p:Configuration=Release /p:Platform=x64
-      - name: Upload build
+          msbuild oxygenengine\build\_vstudio\oxygenengine.sln ^
+            /p:Configuration=Release ^
+            /p:Platform=x64 ^
+            /m ^
+            /verbosity:minimal
+
+          if errorlevel 1 exit /b 1
+
+      - name: Verify Oxygen Engine
+        working-directory: Oxygen/sonic3air
+        shell: cmd
+        run: |
+          if not exist "oxygenengine\bin\Release_x64\OxygenApp.exe" (
+            echo ERROR: OxygenApp.exe not found
+            exit /b 1
+          )
+
+      - name: Build Sonic 3 A.I.R.
+        working-directory: Oxygen/sonic3air
+        shell: cmd
+        run: |
+          msbuild build\_vstudio\sonic3air.sln ^
+            /p:Configuration=Release ^
+            /p:Platform=x64 ^
+            /m ^
+            /verbosity:minimal
+
+          if errorlevel 1 exit /b 1
+
+      - name: Verify Sonic 3 A.I.R.
+        working-directory: Oxygen/sonic3air
+        shell: cmd
+        run: |
+          if not exist "bin\Release_x64\*.exe" (
+            echo ERROR: Sonic 3 A.I.R. EXE not found
+            exit /b 1
+          )
+
+      - name: Create master directory
+        working-directory: Oxygen/sonic3air
+        shell: cmd
+        run: |
+          if exist "..\_MASTER" rmdir "..\_MASTER" /s /q
+
+          mkdir "..\_MASTER"
+          mkdir "..\_MASTER\sonic3air_game"
+
+      - name: Copy master image
+        working-directory: Oxygen/sonic3air
+        shell: cmd
+        run: |
+          robocopy "_master_image_template" "..\_MASTER\sonic3air_game" /e
+
+          if errorlevel 8 exit /b 1
+
+      - name: Remove remastered music
+        working-directory: Oxygen/sonic3air
+        shell: cmd
+        run: |
+          if exist "..\_MASTER\sonic3air_game\data\audioremaster.bin" (
+            del "..\_MASTER\sonic3air_game\data\audioremaster.bin"
+          )
+
+      - name: Copy game executable
+        working-directory: Oxygen/sonic3air
+        shell: cmd
+        run: |
+          copy "bin\Release_x64\*.exe" "..\_MASTER\sonic3air_game\"
+
+          if errorlevel 1 exit /b 1
+
+      - name: Copy Discord Game SDK
+        working-directory: Oxygen/sonic3air
+        shell: cmd
+        run: |
+          if not exist "source\external\discord_game_sdk\lib\x86_64\discord_game_sdk.dll" (
+            echo ERROR: discord_game_sdk.dll not found
+            exit /b 1
+          )
+
+          copy "source\external\discord_game_sdk\lib\x86_64\discord_game_sdk.dll" "..\_MASTER\sonic3air_game\"
+
+      - name: Add Oxygen Engine
+        working-directory: Oxygen/sonic3air
+        shell: cmd
+        run: |
+          mkdir "..\_MASTER\sonic3air_game\bonus\oxygenengine"
+
+          robocopy "..\oxygenengine\_master_image_template" "..\_MASTER\sonic3air_game\bonus\oxygenengine" /e
+
+          if errorlevel 8 exit /b 1
+
+          copy "..\oxygenengine\bin\Release_x64\OxygenApp.exe" "..\_MASTER\sonic3air_game\bonus\oxygenengine\"
+
+          if errorlevel 1 exit /b 1
+
+          robocopy "..\oxygenengine\data" "..\_MASTER\sonic3air_game\bonus\oxygenengine\data" /e
+
+          if errorlevel 8 exit /b 1
+
+      - name: Add development scripts
+        working-directory: Oxygen/sonic3air
+        shell: cmd
+        run: |
+          robocopy "scripts" "..\_MASTER\sonic3air_game\bonus\sonic3air_dev\scripts" /e
+
+          if errorlevel 8 exit /b 1
+
+      - name: Create game ZIP
+        shell: pwsh
+        run: |
+          Compress-Archive `
+            -Path "Oxygen/_MASTER/sonic3air_game" `
+            -DestinationPath "Oxygen/_MASTER/sonic3air_game.zip" `
+            -CompressionLevel Optimal
+
+      - name: Prepare development artifacts
+        working-directory: Oxygen/sonic3air
+        shell: cmd
+        run: |
+          mkdir "..\_MASTER\artifacts"
+          mkdir "..\_MASTER\artifacts\bin"
+
+          copy "bin\Release_x64\*.exe" "..\_MASTER\artifacts\bin\"
+          copy "bin\Release_x64\*.pdb" "..\_MASTER\artifacts\bin\"
+
+      - name: Create artifacts 7z
+        shell: pwsh
+        run: |
+          $sevenZip = "${env:ProgramFiles}\7-Zip\7z.exe"
+
+          & $sevenZip a `
+            -t7z `
+            -mx1 `
+            -r `
+            "Oxygen/_MASTER/artifacts.7z" `
+            "Oxygen/_MASTER/artifacts"
+
+          if ($LASTEXITCODE -ne 0) {
+            exit 1
+          }
+
+      - name: Upload game
         uses: actions/upload-artifact@v4
         with:
-          name: sonic3air-windows
-          path: |
-            **/*.exe
+          name: Sonic3AIR-Windows-x64
+          path: Oxygen/_MASTER/sonic3air_game.zip
+          if-no-files-found: error
+
+      - name: Upload development artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sonic3AIR-Windows-x64-Development
+          path: Oxygen/_MASTER/artifacts.7z
+          if-no-files-found: error
