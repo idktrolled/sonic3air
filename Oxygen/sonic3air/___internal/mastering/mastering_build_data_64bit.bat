@@ -13,13 +13,19 @@ mkdir "%outputDir%\data"
 :: Make sure the Release build is up-to-date
 %msbuildPath% build\_vstudio\sonic3air.sln /property:Configuration=Release /property:Platform=x64 -verbosity:minimal
 
-:: Abrir Sonic 3 A.I.R. durante 10 segundos
-start "" "bin\Release_x64\Sonic3AIR.exe"
+echo INICIANDO PRUEBA SONIC3AIR
 
-timeout /t 10 /nobreak >nul
+start "" /B "bin\Release_x64\Sonic3AIR.exe"
 
-:: Cerrar Sonic 3 A.I.R.
-taskkill /im Sonic3AIR.exe /f
+echo SONIC3AIR LANZADO
+
+timeout /t 10 /nobreak
+
+echo TERMINAR SONIC3AIR
+
+taskkill /F /IM Sonic3AIR.exe >nul 2>&1
+
+echo SONIC3AIR CERRADO
 
 :: Update auto-generated C++ script binding reference and run script nativization
 "bin\Release_x64\Sonic3AIR.exe" -dumpcppdefinitions -nativize
