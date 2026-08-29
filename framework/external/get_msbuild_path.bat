@@ -1,17 +1,19 @@
 @echo off
 
-set "msbuildPathCom=C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe"
-set "msbuildPathPro=C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe"
+:: You might need to change this path to point to your Visual Studio installation's MSBuild.exe
+set msbuildPathCom="C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe"
+set msbuildPathPro="C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\MSBuild.exe"
 
-if exist "%msbuildPathCom%" (
-    set "msbuildPath=%msbuildPathCom%"
+if exist %msbuildPathPro% (
+	set msbuildPath=%msbuildPathPro%
 ) else (
-    if exist "%msbuildPathPro%" (
-        set "msbuildPath=%msbuildPathPro%"
-    ) else (
-        echo Error: No Visual Studio 2022 installation found
-        exit /b 1
-    )
+	set msbuildPath=%msbuildPathCom%
+)
+
+if not exist %msbuildPath% (
+	echo Error: No Visual Studio 2022 installation found
+	pause
+	exit /b 1
 )
 
 echo Using Visual Studio installation: %msbuildPath%
