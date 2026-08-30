@@ -18,6 +18,10 @@ mkdir "%outputDir%\data"
 
 :: Build data packages and meta data
 "bin\Release_x64\Sonic3AIR.exe" -pack
+
+:: Exit
+"bin\Release_x64\Sonic3AIR.exe" -exit
+
 move "enginedata.bin" "%outputDir%\data"
 move "gamedata.bin" "%outputDir%\data"
 move "audiodata.bin" "%outputDir%\data"
