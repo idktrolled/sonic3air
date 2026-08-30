@@ -14,12 +14,14 @@ mkdir "%outputDir%\data"
 %msbuildPath% build\_vstudio\sonic3air.sln /property:Configuration=Release /property:Platform=x64 -verbosity:minimal
 
 :: Update auto-generated C++ script binding reference and run script nativization
-"bin\Release_x64\Sonic3AIR.exe" -dumpcppdefinitions -nativize
+start "" "bin\Release_x64\Sonic3AIR.exe" -dumpcppdefinitions -nativize
+timeout /t 5 /nobreak >nul
+taskkill /IM Sonic3AIR.exe /F /T >nul 2>&1
 
 :: Build data packages and meta data
-"bin\Release_x64\Sonic3AIR.exe" -pack
-
-"bin\Release_x64\Sonic3AIR.exe" -exit
+start "" "bin\Release_x64\Sonic3AIR.exe" -pack
+timeout /t 5 /nobreak >nul
+taskkill /IM Sonic3AIR.exe /F /T >nul 2>&1
 
 move "enginedata.bin" "%outputDir%\data"
 move "gamedata.bin" "%outputDir%\data"
