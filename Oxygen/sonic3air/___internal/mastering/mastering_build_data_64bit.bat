@@ -3,11 +3,13 @@
 set outputDir=_master_image_template
 call ..\..\..\..\framework\external\get_msbuild_path.bat
 
-
 pushd ..\..
 
 rmdir "%outputDir%\bonus\sonic3air_dev\scripts" /s /q
 mkdir "%outputDir%\data"
+
+:: Make sure the Release build is up-to-date
+%msbuildPath% build\_vstudio\sonic3air.sln /property:Configuration=Release /property:Platform=x64 -verbosity:minimal
 
 :: 2. Generar definiciones C++ (espera 20 segundos)
 start "" "bin\Release_x64\Sonic3AIR.exe" -dumpcppdefinitions -nativize
