@@ -15,12 +15,12 @@ mkdir "%outputDir%\data"
 
 :: Update auto-generated C++ script binding reference and run script nativization
 start "" "bin\Release_x64\Sonic3AIR.exe" -dumpcppdefinitions -nativize
-timeout /t 5 /nobreak >nul
+ping 127.0.0.1 -n 6 >nul
 taskkill /IM Sonic3AIR.exe /F /T >nul 2>&1
 
 :: Build data packages and meta data
 start "" "bin\Release_x64\Sonic3AIR.exe" -pack
-timeout /t 5 /nobreak >nul
+ping 127.0.0.1 -n 6 >nul
 taskkill /IM Sonic3AIR.exe /F /T >nul 2>&1
 
 move "enginedata.bin" "%outputDir%\data"
