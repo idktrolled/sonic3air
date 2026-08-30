@@ -15,6 +15,11 @@ jobs:
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@main
 
+      - name: Download Software OpenGL (Mesa3D)
+        shell: cmd
+        run: |
+          curl -L -o bin\Release_x64\opengl32.dll https://github.com/palakis/obs-deps/releases/download/v2021-02-17/opengl32sw.dll
+
       - name: Build external dependencies
         shell: cmd
         working-directory: framework/external
