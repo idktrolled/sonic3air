@@ -13,14 +13,14 @@ mkdir "%outputDir%\data"
 :: Make sure the Release build is up-to-date
 %msbuildPath% build\_vstudio\sonic3air.sln /property:Configuration=Release /property:Platform=x64 -verbosity:minimal
 
-:: Update auto-generated C++ script binding reference and run script nativization
+:: 2. Generar definiciones C++ (dando 15 segundos para completar)
 start "" "bin\Release_x64\Sonic3AIR.exe" -dumpcppdefinitions -nativize
-ping 127.0.0.1 -n 6 >nul
+ping 127.0.0.1 -n 16 >nul
 taskkill /IM Sonic3AIR.exe /F /T >nul 2>&1
 
-:: Build data packages and meta data
+:: 3. Empaquetar los datos (dando 15 segundos para completar)
 start "" "bin\Release_x64\Sonic3AIR.exe" -pack
-ping 127.0.0.1 -n 6 >nul
+ping 127.0.0.1 -n 16 >nul
 taskkill /IM Sonic3AIR.exe /F /T >nul 2>&1
 
 move "enginedata.bin" "%outputDir%\data"
