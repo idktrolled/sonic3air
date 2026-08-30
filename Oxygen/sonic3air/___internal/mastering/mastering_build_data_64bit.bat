@@ -16,20 +16,6 @@ mkdir "%outputDir%\data"
 :: Update auto-generated C++ script binding reference and run script nativization
 "bin\Release_x64\Sonic3AIR.exe" -dumpcppdefinitions -nativize
 
-echo INICIANDO PRUEBA SONIC3AIR
-
-start "" /B "bin\Release_x64\Sonic3AIR.exe"
-
-echo SONIC3AIR LANZADO
-
-timeout /t 10 /nobreak
-
-echo TERMINAR SONIC3AIR
-
-taskkill /F /IM Sonic3AIR.exe >nul 2>&1
-
-echo SONIC3AIR CERRADO
-
 :: Build data packages and meta data
 "bin\Release_x64\Sonic3AIR.exe" -pack
 move "enginedata.bin" "%outputDir%\data"
